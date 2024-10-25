@@ -226,38 +226,3 @@ def evaluation_report(true_entities, pred_entities, entity_count):
         value['f1'] = 2 * value['pre'] * value['rec'] / (value['pre'] + value['rec']) if value['pre'] + value['rec'] else 0
 
     return eval_dict
-
-
-# class SentenceEncoder:
-#     def __init__(self, device='cuda'):
-#         """Initialize a sentence encoder using the paraphrase-distilroberta-base-v1 model."""
-#         self.model = SentenceTransformer('paraphrase-distilroberta-base-v1', device=device)
-
-#     def encode(self, sentences):
-#         """Encode sentences into embeddings. Supports both string and list input."""
-#         if isinstance(sentences, str):
-#             sentences = [sentences]
-#         return self.model.encode(sentences, convert_to_tensor=True)
-
-#     def get_similarity(self, sentence1, sentence2):
-#         """Compute cosine similarity between two sentences."""
-#         embeddings = self.model.encode([sentence1, sentence2], convert_to_tensor=True)
-#         return util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
-
-#     def find_best_sim(self, original_sentence, adversarial_sentences, find_min=False):
-#         """Find the adversarial sentence with the highest or lowest similarity to the original sentence."""
-#         ori_embedding = self.model.encode(original_sentence, convert_to_tensor=True)
-#         adv_embeddings = self.model.encode(adversarial_sentences, convert_to_tensor=True)
-
-#         best_sim = 10 if find_min else -10
-#         best_adv, best_index = None, None
-
-#         for i, adv_embedding in enumerate(adv_embeddings):
-#             sim = util.pytorch_cos_sim(ori_embedding, adv_embedding).item()
-#             if (find_min and sim < best_sim) or (not find_min and sim > best_sim):
-#                 best_sim = sim
-#                 best_adv = adversarial_sentences[i]
-#                 best_index = i
-
-#         return best_adv, best_index, best_sim
-

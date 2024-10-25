@@ -105,7 +105,6 @@ def preprocess_data(train_set, val_set, tokenizer, max_source_length, max_target
     #LABEL_COLUMN_NAME = 'entity_tags'
     padding = "max_length" if pad_to_max_length else False
     column_names = train_set.column_names
-    # 打印数据集列名以进行调试
     print("Train set columns:", train_set.column_names)
     print("Validation set columns:", val_set.column_names)
 
@@ -389,13 +388,11 @@ def main():
 
     val_data = dataset.select(val_ids)
     test_data = dataset.select(test_ids)
-    # 打印 val_ids 的内容以进行调试
-    print("Validation IDs:", val_ids)
+    #print("Validation IDs:", val_ids)
 
-    # 检查 dataset 的内容
-    print("Dataset length:", len(data))
+    #print("Dataset length:", len(data))
 
-    print("val_data!!!!!!!!!!!!!!!",val_data)
+    #print("val_data!!!!!!!!!!!!!!!",val_data)
     trainPath = os.path.join(args.output_dir, f"train-{args.n_shots}-shot-{args.strategy}.json")
     valPath = os.path.join(args.output_dir, f"val-{args.strategy}.json")
     testPath = os.path.join(args.output_dir, "test.json")
