@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jan  9 16:11:52 2023
-
-Data loading and processing functions
-"""
-
 import os
 import os.path as osp
 import numpy as np
@@ -17,9 +9,6 @@ from torch_geometric.data import DataLoader, DenseDataLoader
 from typing import Callable, List, Optional
 from torch_geometric.data import InMemoryDataset
 
-# =============================================================================
-# Step 0: define functions to read and process graph data
-# =============================================================================
 
 def read_file(folder, prefix, name, dtype=None):
     path = osp.join(folder, f'{prefix}_{name}.txt')
@@ -124,9 +113,6 @@ def read_tu_data(folder, prefix):
 
     return data, slices, sizes
 
-# =============================================================================
-# Step 1: define a class to read all text file based on read_tu_data() function
-# =============================================================================
 
 class ParseDataset(InMemoryDataset):
     def __init__(self,
@@ -205,9 +191,6 @@ class ParseDataset(InMemoryDataset):
     def __repr__(self) -> str:
         return f'{self.name}({len(self)})'
 
-# =============================================================================
-# Step 2: define a function to create data loader based on ParseDataset class
-# =============================================================================
 
 DATA_PATH = 'Data'
 
