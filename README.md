@@ -4,7 +4,7 @@ Codebase paper: "CALog: Content Aware Log Anomaly Detection via Graph Neural Net
 ## Quick Start
 - Use python vitural env.
 - Python 3.11.8
-- [PyTorch 2.2.2ttps://pytorch.org/get-started/locally/)
+- [PyTorch 2.2.2 https://pytorch.org/get-started/locally/)
 - Install [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html)
 
 - Install dependencies
