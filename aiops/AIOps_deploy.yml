@@ -1,0 +1,287 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: aiops
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    nodePort: 30503
+  selector:
+    app: grafana
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: aiops
+spec:
+  selector:
+    matchLabels:
+      app: grafana
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - image: grafana/grafana:latest
+        name: grafana
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: "admin"
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: "admin123"
+        ports:
+        - containerPort: 3000
+          name: grafana
+        volumeMounts:
+        - name: grafana-persistent-storage
+          mountPath: /var/lib/grafana
+      volumes:
+      - name: grafana-persistent-storage
+        persistentVolumeClaim:
+          claimName: grafana-pv-claim
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pv-claim
+  namespace: aiops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aiops-grafana
+  namespace: aiops
+spec:
+  rules:
+  - host: aiops-grafana.dyn.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aiops-grafana
+            port:
+              number: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+  namespace: aiops
+spec:
+  type: NodePort
+  ports:
+  - name: influxapi
+    nodePort: 30501
+    port: 8086
+  - name: influxui
+    nodePort: 30502
+    port: 8083
+  selector:
+    app: influxdb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influxdb
+  namespace: aiops
+spec:
+  selector:
+    matchLabels:
+      app: influxdb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: influxdb
+    spec:
+      containers:
+      - image: influxdb/influxdb:latest
+        name: influxdb
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            influxd &
+            sleep 5
+            influx -execute 'CREATE DATABASE infraqt'
+            sleep infinity & wait
+        ports:
+        - containerPort: 8086
+        - containerPort: 8083
+        volumeMounts:
+        - name: influxdb-persistent-storage
+          mountPath: /var/lib/influxdb
+      volumes:
+      - name: influxdb-persistent-storage
+        persistentVolumeClaim:
+          claimName: influxdb-pv-claim
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: influxdb-pv-claim
+  namespace: aiops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: aiops
+  labels:
+    app: loki
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3100
+      protocol: TCP
+      name: http-metrics
+      targetPort: http-metrics
+  selector:
+    app: loki
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-outer
+  namespace: aiops
+  labels:
+    app: loki
+spec:
+  ports:
+    - port: 3100
+      protocol: TCP
+      name: http-metrics
+      targetPort: http-metrics
+  selector:
+    app: loki
+
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: loki
+  namespace: aiops
+  labels:
+    app: loki
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loki
+  serviceName: loki
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      serviceAccountName: loki
+      securityContext:
+          runAsNonRoot: true
+      initContainers: []
+      containers:
+        - name: loki
+          image: loki/loki:2.3.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - -config.file=/etc/loki/loki.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+            - name: storage
+              mountPath: /data
+          ports:
+            - name: http-metrics
+              containerPort: 3100
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: http-metrics
+              scheme: HTTP
+            initialDelaySeconds: 45
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http-metrics
+              scheme: HTTP
+            initialDelaySeconds: 45
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          securityContext:
+            readOnlyRootFilesystem: true
+      terminationGracePeriodSeconds: 4800
+      volumes:
+        - name: config
+          configMap:
+            defaultMode: 420
+            name: loki
+        - name: storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loki
+  namespace: aiops
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: loki
+  namespace: aiops
+rules:
+  - apiGroups:
+    - extensions
+    resourceNames:
+    - loki
+    resources:
+    - podsecuritypolicies
+    verbs:
+    - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: loki
+  namespace: aiops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: loki
+subjects:
+- kind: ServiceAccount
+  name: loki
+

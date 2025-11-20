@@ -1,0 +1,181 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: promtail-pvc
+  namespace: monitor
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: lvms-vg1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitor-promtail
+  namespace: monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: promtail
+  template:
+    metadata:
+      labels:
+        name: promtail
+    spec:
+      securityContext:
+        fsGroup: 9999
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      volumes:
+      - name: cnflog
+        persistentVolumeClaim:
+          claimName: logservice-syslog
+      - name: run
+        persistentVolumeClaim:
+          claimName: promtail-pvc
+      - name: config
+        configMap:
+          defaultMode: 420
+          name: loki-promtail
+      containers:
+      - name: promtail
+        image: promtail/promtail:2.3.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - -config.file=/etc/promtail/promtail.yaml
+        - -client.url=http://loki.monitor.svc.cluster.local:3100/loki/api/v1/push
+        env:
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        volumeMounts:
+          - mountPath: /etc/promtail
+            name: config
+          - mountPath: /run/promtail
+            name: run
+          - mountPath: /cnf/log
+            name: cnflog
+            #readOnly: true
+        ports:
+          - containerPort: 3101
+            name: http-metrics
+            protocol: TCP
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsGroup: 0000
+          runAsUser: 0000
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /ready
+            port: http-metrics
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitor
+data:
+  prometheus.yml: |-
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-deployment
+  namespace: monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+      volumes:
+        - name: config-volume
+          configMap:
+            name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: monitor
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9090
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-exporter
+  namespace: monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  namespace: monitor
+spec:
+  selector:
+    app: node-exporter
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 9100
+      targetPort: 9100
