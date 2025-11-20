@@ -1,7 +1,38 @@
 # CALog
-Codebase paper: "CALog: Content Aware Log Anomaly Detection via Graph Neural Networks".
+Codebase paper: "A Cloud Native AIOps Framework for Log Anomaly Detection in Information Systems".
 
-## Quick Start
+## Cloud Native AIOps Deployment
+This section describes how to deploy CALog within a Kubernetes-based AIOps infrastructure.
+
+### Prerequisites
+- Kubernetes cluster access
+- Container images prepared in your local registry
+- kubectl configured for cluster access
+
+### Deployment Steps
+
+#### 1. Setup Monitoring Infrastructure
+Create monitoring namespace and deploy collection tools:
+```bash
+kubectl create namespace monitor
+kubectl apply -f Inside_SUT_deployment.yml -n monitor
+```
+
+#### 2. Deploy AIOps Core Components  
+Create AIOps namespace and deploy central storage with dashboard:
+```bash
+kubectl create namespace aiops
+kubectl apply -f AIOps_deploy.yml -n aiops
+```
+
+
+### Cleanup
+To remove the AIOps deployment:
+```bash
+bash delete_aiops.sh
+```
+
+## Quick Start for CALog
 - Use python vitural env.
 - Python 3.11.8
 - [PyTorch 2.2.2 https://pytorch.org/get-started/locally/)
@@ -11,11 +42,6 @@ Codebase paper: "CALog: Content Aware Log Anomaly Detection via Graph Neural Net
 ```
 pip install -r requirements.txt
 ```
-
-
-## Dataset
-Use public dataset on [Loghub](https://github.com/logpai/loghub?tab=readme-ov-file):
-
 
 ## Content aware for logs
 ```
